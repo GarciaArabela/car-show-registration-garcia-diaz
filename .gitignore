@@ -1,0 +1,23 @@
+# Build and Output Directories
+[Bb]in/
+[Oo]bj/
+dist/
+node_modules/
+
+# Visual Studio & IDEs
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vscode/
+.idea/
+
+# SQLite Databases & Logs
+*.db
+*.db-shm
+*.db-wal
+
+# OS generated files
+.DS_Store
+Thumbs.db
