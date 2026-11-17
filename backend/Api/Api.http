@@ -1,6 +1,393 @@
 @Api_HostAddress = http://localhost:5205
+@baseUrl = {{Api_HostAddress}}/api/registrations
 
-GET {{Api_HostAddress}}/api/students/
-Accept: application/json
+###############################################################################
+# PART 1: MAKE A NEW REGISTRATION — POST /api/registrations
+###############################################################################
 
-###
+### Case 01: Valid Competitor, partly paid
+# Expected: 201 Created with Location header /api/registrations/{id}
+# Body has registrationFee: 2500.00, amountPaid: 1000.00, paymentStatus: "Partial", status: "Pending"
+# @name createCase01
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "participantName": "Juan Dela Cruz",
+  "contactNumber": "09171234567",
+  "email": "juan.delacruz@example.com",
+  "address": "123 Rizal St., Naga City",
+  "carMakeModel": "Toyota Supra MK4",
+  "plateNumber": "TST 1001",
+  "registrationType": "Competitor",
+  "amountPaid": 1000.00
+}
+
+### Case 02: Valid Exhibitor, not paid
+# Expected: 201 Created
+# Body has registrationFee: 1500.00, amountPaid: 0, paymentStatus: "Unpaid", status: "Pending"
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "participantName": "Juan Dela Cruz",
+  "contactNumber": "09171234567",
+  "email": "juan.delacruz@example.com",
+  "address": "123 Rizal St., Naga City",
+  "carMakeModel": "Toyota Supra MK4",
+  "plateNumber": "TST 1002",
+  "registrationType": "Exhibitor",
+  "amountPaid": 0
+}
+
+### Case 03: Valid VIP, fully paid
+# Expected: 201 Created
+# Body has registrationFee: 5000.00, amountPaid: 5000.00, paymentStatus: "Paid", status: "Pending"
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "participantName": "Juan Dela Cruz",
+  "contactNumber": "09171234567",
+  "email": "juan.delacruz@example.com",
+  "address": "123 Rizal St., Naga City",
+  "carMakeModel": "Toyota Supra MK4",
+  "plateNumber": "TST 1003",
+  "registrationType": "VIP",
+  "amountPaid": 5000
+}
+
+### Case 04: Registration number increases
+# Compare TC-01, TC-02, TC-03 registration numbers
+# Expected: Consecutive numbers (e.g. CS27-0026, CS27-0027, CS27-0028)
+GET {{baseUrl}}?page=1&pageSize=5
+
+### Case 05: Client tries to set server-only fields
+# Expected: 201 Created
+# Extra fields ignored: registrationFee: 5000.00, status: "Pending", registrationNumber is the next CS27-xxxx
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "participantName": "Juan Dela Cruz",
+  "contactNumber": "09171234567",
+  "email": "juan.delacruz@example.com",
+  "address": "123 Rizal St., Naga City",
+  "carMakeModel": "Toyota Supra MK4",
+  "plateNumber": "TST 1005",
+  "registrationType": "VIP",
+  "amountPaid": 0,
+  "registrationFee": 1,
+  "status": "Confirmed",
+  "registrationNumber": "HACK-1"
+}
+
+### Case 06: All text fields empty
+# Expected: 400 Bad Request
+# ProblemDetails with errors for all six fields
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "participantName": "",
+  "contactNumber": "",
+  "email": "",
+  "address": "",
+  "carMakeModel": "",
+  "plateNumber": "",
+  "registrationType": "Competitor",
+  "amountPaid": 1000.00
+}
+
+### Case 07: Invalid contact number
+# Expected: 400 Bad Request
+# errors.ContactNumber explains the 09XXXXXXXXX format
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "participantName": "Juan Dela Cruz",
+  "contactNumber": "12345",
+  "email": "juan.delacruz@example.com",
+  "address": "123 Rizal St., Naga City",
+  "carMakeModel": "Toyota Supra MK4",
+  "plateNumber": "TST 1007",
+  "registrationType": "Competitor",
+  "amountPaid": 1000.00
+}
+
+### Case 08: Invalid email
+# Expected: 400 Bad Request
+# errors.Email contains an email format message
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "participantName": "Juan Dela Cruz",
+  "contactNumber": "09171234567",
+  "email": "juan-at-example",
+  "address": "123 Rizal St., Naga City",
+  "carMakeModel": "Toyota Supra MK4",
+  "plateNumber": "TST 1008",
+  "registrationType": "Competitor",
+  "amountPaid": 1000.00
+}
+
+### Case 09: Paid more than the fee
+# Expected: 400 Bad Request
+# errors.AmountPaid says it cannot be more than the fee (1,500)
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "participantName": "Juan Dela Cruz",
+  "contactNumber": "09171234567",
+  "email": "juan.delacruz@example.com",
+  "address": "123 Rizal St., Naga City",
+  "carMakeModel": "Toyota Supra MK4",
+  "plateNumber": "TST 1009",
+  "registrationType": "Exhibitor",
+  "amountPaid": 2000
+}
+
+### Case 10: Negative amount paid
+# Expected: 400 Bad Request
+# errors.AmountPaid says it must be 0 or more
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "participantName": "Juan Dela Cruz",
+  "contactNumber": "09171234567",
+  "email": "juan.delacruz@example.com",
+  "address": "123 Rizal St., Naga City",
+  "carMakeModel": "Toyota Supra MK4",
+  "plateNumber": "TST 1010",
+  "registrationType": "Competitor",
+  "amountPaid": -100
+}
+
+### Case 11: Unknown registration type
+# Expected: 400 Bad Request
+# Request is rejected; no registration is created
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "participantName": "Juan Dela Cruz",
+  "contactNumber": "09171234567",
+  "email": "juan.delacruz@example.com",
+  "address": "123 Rizal St., Naga City",
+  "carMakeModel": "Toyota Supra MK4",
+  "plateNumber": "TST 1011",
+  "registrationType": "Sponsor",
+  "amountPaid": 1000.00
+}
+
+### Case 12: Text longer than allowed
+# Expected: 400 Bad Request
+# errors.ParticipantName mentions the 150-character limit
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "participantName": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nost",
+  "contactNumber": "09171234567",
+  "email": "juan.delacruz@example.com",
+  "address": "123 Rizal St., Naga City",
+  "carMakeModel": "Toyota Supra MK4",
+  "plateNumber": "TST 1012",
+  "registrationType": "Competitor",
+  "amountPaid": 1000.00
+}
+
+### Case 13: Duplicate plate number
+# Expected: 409 Conflict
+# ProblemDetails with title: "Registration.Conflict" and a detail naming the plate number
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "participantName": "Juan Dela Cruz",
+  "contactNumber": "09171234567",
+  "email": "juan.delacruz@example.com",
+  "address": "123 Rizal St., Naga City",
+  "carMakeModel": "Toyota Supra MK4",
+  "plateNumber": "TST 1001",
+  "registrationType": "Competitor",
+  "amountPaid": 1000.00
+}
+
+
+###############################################################################
+# PART 2: SHOW ALL REGISTRATIONS — GET /api/registrations
+###############################################################################
+
+### Case 14: Default list
+# Expected: 200 OK
+# page: 1, pageSize: 10, at most 10 items, totalCount >= 25, totalPages = totalCount / 10 rounded up
+GET {{baseUrl}}
+
+### Case 15: Newest first
+# Expected: 200 OK
+# Items sorted by registrationDate, newest first (TC-01 to TC-05 are at the top)
+GET {{baseUrl}}
+
+### Case 16: Second page, custom size
+# Expected: 200 OK
+# page: 2, pageSize: 5, 5 items, none of them on page 1
+GET {{baseUrl}}?page=2&pageSize=5
+
+### Case 17: Page past the end
+# Expected: 200 OK
+# items: [], totalCount unchanged
+GET {{baseUrl}}?page=999
+
+### Case 18: Invalid page
+# Expected: 400 Bad Request
+# errors.Page
+GET {{baseUrl}}?page=0
+
+### Case 19: Page size too large
+# Expected: 400 Bad Request
+# errors.PageSize mentions the 1-50 range
+GET {{baseUrl}}?pageSize=100
+
+
+###############################################################################
+# PART 3: FIND BY TYPE, STATUS AND PARTICIPANT NAME — GET /api/registrations?...
+###############################################################################
+
+### Case 20: Find by type
+# Expected: 200 OK
+# Every item has registrationType: "VIP", including TC-03
+GET {{baseUrl}}?type=VIP
+
+### Case 21: Find by status
+# Expected: 200 OK
+# Every item has status: "Confirmed"
+GET {{baseUrl}}?status=Confirmed
+
+### Case 22: Find by participant name
+# Expected: 200 OK
+# Every participantName contains "juan"; CASE 01 registration is included
+GET {{baseUrl}}?participantName=juan
+
+### Case 23: Name search ignores case
+# Expected: 200 OK
+# Same items and totalCount as CASE 22
+GET {{baseUrl}}?participantName=JUAN
+
+### Case 24: Partial name match
+# Expected: 200 OK
+# Includes "Juan Dela Cruz"
+GET {{baseUrl}}?participantName=dela
+
+### Case 25: Combined filters
+# Expected: 200 OK
+# Every item matches all three filters; CASE 01 is included
+GET {{baseUrl}}?type=Competitor&status=Pending&participantName=juan
+
+### Case 26: No matches
+# Expected: 200 OK
+# items: [], totalCount: 0, totalPages: 0
+GET {{baseUrl}}?participantName=zzzzzz
+
+### Case 27: Invalid type
+# Expected: 400 Bad Request
+# Request is rejected
+GET {{baseUrl}}?type=Sponsor
+
+### Case 28: Invalid status
+# Expected: 400 Bad Request
+# Request is rejected
+GET {{baseUrl}}?status=Done
+
+
+###############################################################################
+# PART 4: FIND REGISTRATION BY ID — GET /api/registrations/{id}
+###############################################################################
+
+### Case 29: Existing ID
+# Replace GUID with id from CASE 01 (or seeded Juan Dela Cruz: 3f2c9a1e-8765-4321-9abc-0123456789ab)
+# Expected: 200 OK
+GET {{baseUrl}}/3f2c9a1e-8765-4321-9abc-0123456789ab
+
+### Case 30: ID that doesn't exist
+# Expected: 404 Not Found
+# ProblemDetails with title: "Registration.NotFound"
+GET {{baseUrl}}/00000000-0000-0000-0000-000000000001
+
+### Case 31: Not a valid GUID
+# Expected: 404 Not Found
+# No route matches; API does not crash (no 500)
+GET {{baseUrl}}/abc
+
+
+###############################################################################
+# PART 5: KPI SUMMARY — GET /api/registrations/summary
+###############################################################################
+
+### Case 32: Summary returns all fields
+# Expected: 200 OK
+# Has totalRegistrations, confirmed, checkedIn, pending, cancelled, totalFees, totalPayments, uncollectedPayments
+GET {{baseUrl}}/summary
+
+### Case 33: Status counts add up
+# Expected: confirmed + checkedIn + pending + cancelled = totalRegistrations
+GET {{baseUrl}}/summary
+
+### Case 34: Totals match the list
+# Expected: totalRegistrations = totalCount from GET /api/registrations
+GET {{baseUrl}}/summary
+
+### Case 35: Money adds up
+# Expected: totalFees - totalPayments = uncollectedPayments
+GET {{baseUrl}}/summary
+
+### Case 36: Cancelled are excluded from money
+# Inspect seeded Cancelled registration (fee and amount paid are not included in money totals)
+GET {{baseUrl}}?status=Cancelled
+
+### Case 37: Summary updates after a new registration
+# Step 1: Note current summary
+GET {{baseUrl}}/summary
+
+### Case 37 (Step 2): POST new registration
+# Expected: 201 Created
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "participantName": "Juan Dela Cruz",
+  "contactNumber": "09171234567",
+  "email": "juan.delacruz@example.com",
+  "address": "123 Rizal St., Naga City",
+  "carMakeModel": "Toyota Supra MK4",
+  "plateNumber": "TST 1037",
+  "registrationType": "Exhibitor",
+  "amountPaid": 500
+}
+
+### Case 37 (Step 3): Verify updated summary
+# Expected: totalRegistrations +1, pending +1, totalFees +1500, totalPayments +500, uncollectedPayments +1000
+GET {{baseUrl}}/summary
+
+### Case 38: /summary is not treated as an ID
+# Expected: 200 OK (Returns the summary, not 404 or 400)
+GET {{baseUrl}}/summary
+
+
+###############################################################################
+# PART 6: DATABASE PERSISTENCE — SQLite
+###############################################################################
+
+### Case 39: Data survives a restart
+# Step 1: Note totalCount from GET /api/registrations
+# Step 2: Stop and restart API
+# Step 3: GET /api/registrations and verify same count, seed not re-added
+GET {{baseUrl}}
+
+### Case 40: Unique indexes exist in the database
+# Open carshow.db in DB Browser for SQLite and verify unique indexes on PlateNumber and RegistrationNumber
+GET {{baseUrl}}/summary
