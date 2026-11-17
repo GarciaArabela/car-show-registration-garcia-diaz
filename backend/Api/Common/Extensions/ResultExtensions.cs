@@ -13,11 +13,31 @@ public static class ResultExtensions
         }
 
         var error = result.Error!;
+        int statusCode = GetStatusCode(error.Code);
         var problemDetails = new ProblemDetails
         {
             Title = error.Code,
             Detail = error.Message,
-            Status = GetStatusCode(error.Code)
+            Status = statusCode
+        };
+
+        return Results.Problem(problemDetails);
+    }
+
+    public static IResult ToProblemDetails(this Result result)
+    {
+        if (result.IsSuccess)
+        {
+            throw new InvalidOperationException("Cannot convert success result to ProblemDetails.");
+        }
+
+        var error = result.Error!;
+        int statusCode = GetStatusCode(error.Code);
+        var problemDetails = new ProblemDetails
+        {
+            Title = error.Code,
+            Detail = error.Message,
+            Status = statusCode
         };
 
         return Results.Problem(problemDetails);
