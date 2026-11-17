@@ -31,24 +31,24 @@ public sealed class CreateRegistrationHandler : ICommandHandler<CreateRegistrati
                 Error.Conflict("Registration.Conflict", $"A registration with plate number '{command.PlateNumber}' already exists."));
         }
 
-        var lastRegistration = await _dbContext.Registrations
+        var regNumbers = await _dbContext.Registrations
             .Where(r => r.RegistrationNumber.StartsWith("CS27-"))
-            .OrderByDescending(r => r.RegistrationNumber)
             .Select(r => r.RegistrationNumber)
-            .FirstOrDefaultAsync(cancellationToken);
+            .ToListAsync(cancellationToken);
 
-        int nextSeq = 1;
-        if (!string.IsNullOrEmpty(lastRegistration) && lastRegistration.Length >= 9 &&
-            int.TryParse(lastRegistration[5..], out int parsedSeq))
+        int maxSeq = 0;
+        foreach (var num in regNumbers)
         {
-            nextSeq = parsedSeq + 1;
-        }
-        else
-        {
-            int totalCount = await _dbContext.Registrations.CountAsync(cancellationToken);
-            nextSeq = totalCount + 1;
+            if (num.Length >= 9 && int.TryParse(num[5..], out int seq))
+            {
+                if (seq > maxSeq)
+                {
+                    maxSeq = seq;
+                }
+            }
         }
 
+        int nextSeq = maxSeq > 0 ? maxSeq + 1 : await _dbContext.Registrations.CountAsync(cancellationToken) + 1;
         string registrationNumber = $"CS27-{nextSeq:D4}";
         decimal fee = Registration.CalculateFee(command.RegistrationType);
 

@@ -66,11 +66,12 @@ builder.Services.AddOpenApi(options =>
 
 var app = builder.Build();
 
-// Apply migrations on startup
+// Apply migrations and seed data on startup
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    dbContext.Database.Migrate();
+    await dbContext.Database.MigrateAsync();
+    await DatabaseSeeder.SeedAsync(dbContext);
 }
 
 // Pipeline configuration
