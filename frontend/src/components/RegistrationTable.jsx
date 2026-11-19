@@ -21,7 +21,35 @@ function initials(name) {
   return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
 }
 
-export default function RegistrationTable({ items }) {
+export default function RegistrationTable({ items, loading = false, error = false, onRetry, onClear }) {
+  if (loading) {
+    return (
+      <div aria-live="polite" className="space-y-3 py-5">
+        <p className="text-center text-sm font-medium text-slate-600">Loading registrations...</p>
+        {Array.from({ length: 4 }, (_, index) => <div key={index} aria-hidden="true" className="h-14 animate-pulse rounded-lg bg-slate-100" />)}
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div role="alert" className="py-12 text-center">
+        <p className="font-semibold text-slate-900">Cannot reach the API.</p>
+        <p className="mt-1 text-sm text-slate-600">Check the connection and try again.</p>
+        <button type="button" onClick={onRetry} className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300">Try again</button>
+      </div>
+    )
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="py-12 text-center">
+        <p className="font-semibold text-slate-900">No registrations match your filters.</p>
+        <button type="button" onClick={onClear} className="mt-3 text-sm font-semibold text-blue-700 hover:text-blue-800">Clear filters</button>
+      </div>
+    )
+  }
+
   return (
     <div className="overflow-x-auto rounded-lg">
       <table className="w-full min-w-[1080px] border-collapse text-left text-sm">
