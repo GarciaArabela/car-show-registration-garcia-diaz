@@ -7,7 +7,7 @@ export default function KpiCard({ title, value, icon: Icon, accent }) {
         </span>
         <h3 className="text-sm font-medium leading-5 text-slate-700">{title}</h3>
       </div>
-      <p className="relative z-10 mt-3 text-2xl font-bold tracking-tight text-slate-950">{value}</p>
+      <p className="relative z-10 mt-3 break-words text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">{value}</p>
       <span aria-hidden="true" className="absolute -bottom-9 -right-4 h-16 w-32 rounded-[50%] bg-sky-100/70 transition group-hover:bg-sky-200/70" />
     </article>
   )

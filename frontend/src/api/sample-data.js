@@ -61,6 +61,33 @@ export const registrations = participants.map((person, index) => {
   }
 })
 
+export function createSampleRegistration(values) {
+  const participantName = values.participantName.trim()
+  if (!participantName || !values.carMakeModel.trim() || !values.plateNumber.trim()) {
+    throw new Error('Enter the participant and vehicle details before saving.')
+  }
+  const registrationType = values.registrationType
+  const registrationFee = registrationType === 'Exhibitor' ? 2000 : registrationType === 'Competitor' ? 2500 : 3000
+  const registration = {
+    id: `registration-${String(registrations.length + 1).padStart(3, '0')}`,
+    registrationNumber: `CS27-${String(registrations.length + 13).padStart(4, '0')}`,
+    registrationDate: new Date().toISOString(),
+    participantName,
+    contactNumber: values.contactNumber.trim(),
+    email: values.email.trim(),
+    address: values.address.trim(),
+    carMakeModel: values.carMakeModel.trim(),
+    plateNumber: values.plateNumber.trim().toUpperCase(),
+    registrationType,
+    status: 'Pending',
+    registrationFee,
+    amountPaid: 0,
+    paymentStatus: 'Unpaid',
+  }
+  registrations.unshift(registration)
+  return registration
+}
+
 export async function getRegistrations({ participantName = '', type = 'All', status = 'All', page = 1, pageSize = 10 } = {}) {
   const normalizedName = participantName.trim().toLocaleLowerCase()
   const filtered = registrations.filter((registration) => {
