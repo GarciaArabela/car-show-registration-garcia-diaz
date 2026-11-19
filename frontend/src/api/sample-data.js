@@ -88,6 +88,10 @@ export function createSampleRegistration(values) {
   return registration
 }
 
+export function createRegistration(values) {
+  return createSampleRegistration(values)
+}
+
 export async function getRegistrations({ participantName = '', type = 'All', status = 'All', page = 1, pageSize = 10 } = {}) {
   const normalizedName = participantName.trim().toLocaleLowerCase()
   const filtered = registrations.filter((registration) => {
@@ -121,4 +125,8 @@ export async function getSummary() {
 
   summary.uncollectedPayments = summary.totalFees - summary.totalPayments
   return summary
+}
+
+export async function getAllRegistrations() {
+  return [...registrations]
 }

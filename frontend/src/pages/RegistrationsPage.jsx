@@ -3,7 +3,7 @@ import {
   Bell, CalendarDays, ChartNoAxesColumnIncreasing, ChevronDown, ClipboardList,
   CreditCard, Download, MapPin, Menu, Plus, Settings, UsersRound, X,
 } from 'lucide-react'
-import { createSampleRegistration, getRegistrations, getSummary, registrations } from '../api/sample-data'
+import { createRegistration, dataSourceLabel, getAllRegistrations, getRegistrations, getSummary } from '../api/registrationsDataSource'
 import useDebounce from '../hooks/useDebounce'
 import KpiCards from '../components/KpiCards'
 import Pagination from '../components/Pagination'
@@ -33,10 +33,11 @@ function RegistrationDialog({ onClose, onCreate }) {
   const [form, setForm] = useState({ participantName: '', contactNumber: '', email: '', address: '', carMakeModel: '', plateNumber: '', registrationType: 'Exhibitor' })
   const [formError, setFormError] = useState('')
   const set = (event) => setForm((current) => ({ ...current, [event.target.name]: event.target.value }))
-  const submit = (event) => {
+  const submit = async (event) => {
     event.preventDefault()
+    setFormError('')
     try {
-      onCreate(form)
+      await onCreate(form)
       onClose()
     } catch (error) {
       setFormError(error.message)
@@ -47,14 +48,14 @@ function RegistrationDialog({ onClose, onCreate }) {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
       <section role="dialog" aria-modal="true" aria-labelledby="add-registration-title" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-7">
-        <div className="mb-5 flex items-start justify-between"><div><h2 id="add-registration-title" className="text-xl font-bold">Add Registration</h2><p className="mt-1 text-sm text-slate-600">Create a sample registration for the dashboard.</p></div><button type="button" onClick={onClose} aria-label="Close dialog" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><X size={20}/></button></div>
+        <div className="mb-5 flex items-start justify-between"><div><h2 id="add-registration-title" className="text-xl font-bold">Add Registration</h2><p className="mt-1 text-sm text-slate-600">Enter participant and vehicle details.</p></div><button type="button" onClick={onClose} aria-label="Close dialog" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><X size={20}/></button></div>
         <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-medium">Participant name<input required name="participantName" value={form.participantName} onChange={set} className={inputClass}/></label>
-          <label className="text-sm font-medium">Contact number<input required name="contactNumber" value={form.contactNumber} onChange={set} className={inputClass}/></label>
-          <label className="text-sm font-medium">Email<input type="email" name="email" value={form.email} onChange={set} className={inputClass}/></label>
-          <label className="text-sm font-medium">Address<input required name="address" value={form.address} onChange={set} className={inputClass}/></label>
-          <label className="text-sm font-medium">Car make and model<input required name="carMakeModel" value={form.carMakeModel} onChange={set} className={inputClass}/></label>
-          <label className="text-sm font-medium">Plate number<input required name="plateNumber" value={form.plateNumber} onChange={set} className={inputClass}/></label>
+          <label className="text-sm font-medium">Participant name<input required maxLength={150} name="participantName" value={form.participantName} onChange={set} className={inputClass}/></label>
+          <label className="text-sm font-medium">Contact number<input required pattern="09[0-9]{9}" title="Use an 11-digit Philippine mobile number beginning with 09." maxLength={11} name="contactNumber" value={form.contactNumber} onChange={set} className={inputClass}/></label>
+          <label className="text-sm font-medium">Email<input required type="email" maxLength={200} name="email" value={form.email} onChange={set} className={inputClass}/></label>
+          <label className="text-sm font-medium">Address<input required maxLength={300} name="address" value={form.address} onChange={set} className={inputClass}/></label>
+          <label className="text-sm font-medium">Car make and model<input required maxLength={100} name="carMakeModel" value={form.carMakeModel} onChange={set} className={inputClass}/></label>
+          <label className="text-sm font-medium">Plate number<input required maxLength={15} name="plateNumber" value={form.plateNumber} onChange={set} className={inputClass}/></label>
           <label className="text-sm font-medium sm:col-span-2">Registration type<select name="registrationType" value={form.registrationType} onChange={set} className={inputClass}><option>Exhibitor</option><option>Competitor</option><option>VIP</option></select></label>
           {formError && <p role="alert" className="text-sm font-medium text-red-700 sm:col-span-2">{formError}</p>}
           <div className="flex justify-end gap-2 pt-2 sm:col-span-2"><button type="button" onClick={onClose} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold">Cancel</button><button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">Save Registration</button></div>
@@ -78,11 +79,15 @@ function downloadCsv(items) {
 
 const currency = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' })
 
-function ParticipantsSection({ items }) {
+function ParticipantsSection({ items, loading, error }) {
+  if (loading) return <p role="status" className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-600">Loading participants...</p>
+  if (error) return <p role="alert" className="rounded-xl border border-red-200 bg-white p-8 text-center text-sm text-red-700">Cannot reach the API.</p>
   return <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6"><div className="mb-5"><h3 className="text-xl font-bold">Participants</h3><p className="mt-1 text-sm text-slate-600">Directory of registered drivers and vehicle owners.</p></div><div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-600"><tr>{['Participant','Contact','Vehicle','Registration','Status'].map(label => <th key={label} className="px-4 py-3">{label}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{items.map(item => <tr key={item.id} className="hover:bg-slate-50"><td className="px-4 py-3 font-semibold">{item.participantName}</td><td className="px-4 py-3 text-slate-600">{item.contactNumber}<span className="block text-xs">{item.email}</span></td><td className="px-4 py-3">{item.carMakeModel}<span className="block text-xs text-slate-500">{item.plateNumber}</span></td><td className="px-4 py-3">{item.registrationNumber}<span className="block text-xs text-slate-500">{item.registrationType}</span></td><td className="px-4 py-3"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold">{item.status === 'CheckedIn' ? 'Checked In' : item.status}</span></td></tr>)}</tbody></table></div></section>
 }
 
-function PaymentsSection({ items, summary }) {
+function PaymentsSection({ items, summary, loading, error }) {
+  if (loading) return <p role="status" className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-600">Loading payment records...</p>
+  if (error) return <p role="alert" className="rounded-xl border border-red-200 bg-white p-8 text-center text-sm text-red-700">Cannot reach the API.</p>
   const paidCount = items.filter(item => item.paymentStatus === 'Paid').length
   const partialCount = items.filter(item => item.paymentStatus === 'Partial').length
   const unpaidCount = items.filter(item => item.paymentStatus === 'Unpaid').length
@@ -90,7 +95,9 @@ function PaymentsSection({ items, summary }) {
   return <div className="space-y-5"><section aria-label="Payment summary" className="grid gap-3 sm:grid-cols-3">{metrics.map(([label,value]) => <article key={label} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-600">{label}</p><p className="mt-2 text-xl font-bold">{value}</p></article>)}</section><section className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6"><div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><h3 className="text-xl font-bold">Payment Ledger</h3><p className="mt-1 text-sm text-slate-600">{paidCount} paid · {partialCount} partial · {unpaidCount} unpaid</p></div></div><div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-600"><tr>{['Registration','Participant','Fee','Paid','Balance','Payment'].map(label => <th key={label} className="px-4 py-3">{label}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{items.map(item => <tr key={item.id} className="hover:bg-slate-50"><td className="px-4 py-3 font-semibold text-blue-700">{item.registrationNumber}</td><td className="px-4 py-3">{item.participantName}</td><td className="px-4 py-3">{currency.format(item.registrationFee)}</td><td className="px-4 py-3">{currency.format(item.amountPaid)}</td><td className="px-4 py-3">{currency.format(item.registrationFee - item.amountPaid)}</td><td className="px-4 py-3"><PaymentBadge status={item.paymentStatus}/></td></tr>)}</tbody></table></div></section></div>
 }
 
-function ReportsSection({ items, summary }) {
+function ReportsSection({ items, summary, loading, error }) {
+  if (loading) return <p role="status" className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-600">Loading reports...</p>
+  if (error) return <p role="alert" className="rounded-xl border border-red-200 bg-white p-8 text-center text-sm text-red-700">Cannot reach the API.</p>
   const statuses = ['Confirmed', 'CheckedIn', 'Pending', 'Cancelled'].map(status => [status === 'CheckedIn' ? 'Checked In' : status, items.filter(item => item.status === status).length])
   const types = ['Exhibitor', 'Competitor', 'VIP'].map(type => [type, items.filter(item => item.registrationType === type).length])
   return <div className="grid gap-5 xl:grid-cols-2"><section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h3 className="text-xl font-bold">Registration status</h3><p className="mt-1 text-sm text-slate-600">Current status breakdown across all registrations.</p><div className="mt-5 divide-y divide-slate-100">{statuses.map(([label,count]) => <div key={label} className="flex items-center justify-between py-3"><span className="text-sm text-slate-700">{label}</span><strong>{count}</strong></div>)}</div></section><section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h3 className="text-xl font-bold">Registration types</h3><p className="mt-1 text-sm text-slate-600">Participant distribution by registration type.</p><div className="mt-5 divide-y divide-slate-100">{types.map(([label,count]) => <div key={label} className="flex items-center justify-between py-3"><span className="text-sm text-slate-700">{label}</span><strong>{count}</strong></div>)}</div></section><section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-2"><h3 className="text-xl font-bold">Event totals</h3><div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">{[['Registrations',summary.totalRegistrations],['Confirmed',summary.confirmed],['Checked in',summary.checkedIn],['Payments collected',currency.format(summary.totalPayments)]].map(([label,value])=><div key={label} className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-600">{label}</p><p className="mt-1 font-bold">{value}</p></div>)}</div></section></div>
@@ -101,7 +108,7 @@ function EventInfoSection() {
 }
 
 function SettingsSection() {
-  return <section className="max-w-3xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7"><h3 className="text-xl font-bold">Workspace Settings</h3><p className="mt-1 text-sm text-slate-600">Dashboard and event configuration currently in use.</p><dl className="mt-5 divide-y divide-slate-100">{[['Workspace','AutoVista Events'],['Active event','Car Show 2027'],['Location','Sorsogon City Coliseum'],['Currency','Philippine Peso (PHP)'],['Data source','Local sample registrations'],['API endpoint','http://localhost:5205']].map(([label,value])=><div key={label} className="flex flex-col gap-1 py-4 sm:flex-row sm:items-center sm:justify-between"><dt className="text-sm text-slate-600">{label}</dt><dd className="text-sm font-semibold text-slate-900">{value}</dd></div>)}</dl><p className="mt-4 rounded-lg bg-blue-50 p-3 text-xs leading-5 text-blue-900">The dashboard is using sample data. Switch to the API client after the backend is running and its response has been confirmed.</p></section>
+  return <section className="max-w-3xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7"><h3 className="text-xl font-bold">Workspace Settings</h3><p className="mt-1 text-sm text-slate-600">Dashboard and event configuration currently in use.</p><dl className="mt-5 divide-y divide-slate-100">{[['Workspace','AutoVista Events'],['Active event','Car Show 2027'],['Location','Sorsogon City Coliseum'],['Currency','Philippine Peso (PHP)'],['Data source',dataSourceLabel],['API endpoint',import.meta.env.VITE_API_BASE_URL || 'http://localhost:5205']].map(([label,value])=><div key={label} className="flex flex-col gap-1 py-4 sm:flex-row sm:items-center sm:justify-between"><dt className="text-sm text-slate-600">{label}</dt><dd className="text-sm font-semibold text-slate-900">{value}</dd></div>)}</dl><p className="mt-4 rounded-lg bg-blue-50 p-3 text-xs leading-5 text-blue-900">The data source is selected with VITE_REGISTRATION_DATA_SOURCE. Restart Vite after changing it.</p></section>
 }
 
 export default function RegistrationsPage() {
@@ -121,7 +128,9 @@ export default function RegistrationsPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [activeSection, setActiveSection] = useState('Registrations')
-  const [allItems, setAllItems] = useState(() => [...registrations])
+  const [allItems, setAllItems] = useState([])
+  const [allItemsLoading, setAllItemsLoading] = useState(true)
+  const [allItemsError, setAllItemsError] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -131,8 +140,8 @@ export default function RegistrationsPage() {
       setError(false)
       try {
         const [nextResults, nextSummary] = await Promise.all([
-          getRegistrations({ participantName: debouncedSearch, type, status, page, pageSize }),
-          getSummary(),
+          getRegistrations({ participantName: debouncedSearch, type, status, page, pageSize }, controller.signal),
+          getSummary(controller.signal),
         ])
         if (!active) return
         setResults(nextResults)
@@ -147,14 +156,32 @@ export default function RegistrationsPage() {
     return () => { active = false; controller.abort(); window.clearTimeout(timeout) }
   }, [debouncedSearch, type, status, page, pageSize, reloadKey])
 
+  useEffect(() => {
+    const controller = new AbortController()
+    let active = true
+    const loadAll = async () => {
+      setAllItemsLoading(true)
+      setAllItemsError(false)
+      try {
+        const items = await getAllRegistrations(controller.signal)
+        if (active) setAllItems(items)
+      } catch (loadError) {
+        if (active && loadError.name !== 'AbortError') setAllItemsError(true)
+      } finally {
+        if (active) setAllItemsLoading(false)
+      }
+    }
+    const timeout = window.setTimeout(loadAll, 0)
+    return () => { active = false; controller.abort(); window.clearTimeout(timeout) }
+  }, [reloadKey])
+
   const visibleItems = useMemo(() => results.items, [results.items])
   const clearFilters = () => { setSearch(''); setType('All'); setStatus('All'); setPage(1) }
   const updateSearch = (value) => { setSearch(value); setPage(1) }
   const updateType = (value) => { setType(value); setPage(1) }
   const updateStatus = (value) => { setStatus(value); setPage(1) }
-  const addRegistration = (values) => {
-    createSampleRegistration(values)
-    setAllItems([...registrations])
+  const addRegistration = async (values) => {
+    await createRegistration(values)
     setPage(1)
     setSearch('')
     setType('All')
@@ -211,11 +238,11 @@ export default function RegistrationsPage() {
             <div className="mt-5"><RegistrationTable items={visibleItems} loading={loading} error={error} onRetry={() => setReloadKey((key) => key + 1)} onClear={clearFilters}/></div>
             <div className="mt-4"><Pagination page={results.page} totalPages={results.totalPages} pageSize={pageSize} totalCount={results.totalCount} onPage={setPage} onPageSize={(size) => { setPageSize(size); setPage(1) }} disabled={loading || error}/></div>
           </section>
-          <p className="mt-4 text-center text-xs text-slate-500">Car Show 2027 · Sorsogon City Coliseum · Sample registration data</p>
+          <p className="mt-4 text-center text-xs text-slate-500">Car Show 2027 · Sorsogon City Coliseum · {dataSourceLabel}</p>
           </>}
-          {activeSection === 'Participants' && <ParticipantsSection items={allItems}/>}
-          {activeSection === 'Payments' && <PaymentsSection items={allItems} summary={summary}/>}
-          {activeSection === 'Reports' && <ReportsSection items={allItems} summary={summary}/>}
+          {activeSection === 'Participants' && <ParticipantsSection items={allItems} loading={allItemsLoading} error={allItemsError}/>}
+          {activeSection === 'Payments' && <PaymentsSection items={allItems} summary={summary} loading={allItemsLoading} error={allItemsError}/>}
+          {activeSection === 'Reports' && <ReportsSection items={allItems} summary={summary} loading={allItemsLoading} error={allItemsError}/>}
           {activeSection === 'Event Info' && <EventInfoSection/>}
           {activeSection === 'Settings' && <SettingsSection/>}
         </main>
